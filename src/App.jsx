@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { marked } from "marked";
 
 // ─── FONTS ──────────────────────────────────────────────────────────────────────
 const fontLink = document.createElement("link");
@@ -74,17 +75,33 @@ function Score({ value }) {
 }
 
 // ─── MARKDOWN ────────────────────────────────────────────────────────────────────
+const MD_STYLES = `
+.md-body { line-height: 1.8; color: #8a9eaa; font-size: 13px; }
+.md-body h1 { font-family: 'Rajdhani',sans-serif; font-size: 20px; font-weight: 700; color: #f0a500; margin: 24px 0 10px; }
+.md-body h2 { font-family: 'Rajdhani',sans-serif; font-size: 16px; font-weight: 700; color: #f0a500; border-bottom: 1px solid #1e2428; padding-bottom: 4px; margin: 20px 0 8px; }
+.md-body h3 { font-family: 'Rajdhani',sans-serif; font-size: 14px; font-weight: 700; color: #c07800; margin: 16px 0 6px; }
+.md-body p { margin: 0 0 8px; }
+.md-body ul { list-style: none; padding-left: 16px; margin: 0 0 8px; }
+.md-body ul li::before { content: '›'; color: #f0a500; margin-right: 8px; }
+.md-body ol { padding-left: 20px; margin: 0 0 8px; }
+.md-body a { color: #5ba4cf; text-decoration: none; }
+.md-body a:hover { text-decoration: underline; }
+.md-body strong { color: #c8d8e0; font-weight: 700; }
+.md-body em { color: #a0b8c4; font-style: italic; }
+.md-body code { font-family: 'Share Tech Mono',monospace; background: #0d1418; color: #3ddc84; padding: 1px 5px; border-radius: 2px; font-size: 12px; }
+.md-body pre { background: #0d1418; border: 1px solid #1e2428; border-radius: 2px; padding: 12px; overflow-x: auto; margin: 0 0 12px; }
+.md-body pre code { background: none; padding: 0; }
+`;
+
 function MD({ content }) {
   return (
-    <div style={{ lineHeight:1.8 }}>
-      {(content||"").split("\n").map((line,i) => {
-        if(line.startsWith("## ")) return <h3 key={i} style={{ fontFamily:"'Rajdhani',sans-serif", fontSize:16, fontWeight:700, color:"#f0a500", borderBottom:"1px solid #1e2428", paddingBottom:4, marginTop:20, marginBottom:8 }}>{line.slice(3)}</h3>;
-        if(line.startsWith("# "))  return <h2 key={i} style={{ fontFamily:"'Rajdhani',sans-serif", fontSize:20, fontWeight:700, color:"#f0a500", marginTop:24, marginBottom:10 }}>{line.slice(2)}</h2>;
-        if(line.startsWith("- "))  return <div key={i} style={{ paddingLeft:16, marginBottom:4, color:"#8a9eaa" }}><span style={{ color:"#f0a500", marginRight:8 }}>›</span>{line.slice(2)}</div>;
-        if(line==="")              return <div key={i} style={{ height:10 }} />;
-        return <p key={i} style={{ color:"#8a9eaa", marginBottom:0, fontSize:13 }}>{line}</p>;
-      })}
-    </div>
+    <>
+      <style>{MD_STYLES}</style>
+      <div
+        className="md-body"
+        dangerouslySetInnerHTML={{ __html: marked.parse(content || "", { breaks: true }) }}
+      />
+    </>
   );
 }
 
