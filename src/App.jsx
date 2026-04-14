@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { marked } from "marked";
+import { TAG_COLORS, DEFAULT_TAG_COLOR, SECTION_ACCENT } from "./constants/tagColors.js";
+import { MOCK } from "./constants/mockData.js";
 
 // ─── FONTS ──────────────────────────────────────────────────────────────────────
 const fontLink = document.createElement("link");
@@ -17,27 +19,6 @@ const notionApi = {
   async about()    { const r = await fetch(`${API}?action=about`);            if(!r.ok) throw new Error(); return r.json(); },
 };
 
-// ─── MOCK DATA ───────────────────────────────────────────────────────────────────
-const MOCK = {
-  reviews: [
-    { id:"r1", postType:"review", game:"Dyson Sphere Program", title:"A Blueprint for Wonder — Factory Building at Galactic Scale", score:9.2, content:`## First Impressions\n\nDyson Sphere Program drops you onto a lonely planet with nothing but a mech suit and a staggering goal: harness the energy of an entire star.\n\n## Verdict\n\nAn essential entry in the factory genre. The Dark Fog expansion adds a meaningful combat threat without compromising the builder's soul.`, tags:{ progress:"Completed", genre:["Builder","Strategy","Space"], priority:"Critical" }, status:"published", updatedAt:"2024-03-01", archives:[] },
-    { id:"r2", postType:"review", game:"Factorio", title:"The Infinite Factory — Still the Gold Standard", score:10.0, content:`## Preamble\n\nFactorio needs no introduction to the genre.\n\n## Verdict\n\nA 10/10. The benchmark against which all automation games are measured.`, tags:{ progress:"Completed", genre:["Strategy","Builder","4X"], priority:"Critical" }, status:"published", updatedAt:"2024-01-15", archives:[] },
-  ],
-  articles: [
-    { id:"a1", postType:"article", game:"Satisfactory", title:"First Hours on Massage-2(A-B)b — Notes from the Factory Floor", content:`## What Is This?\n\nRaw field notes from the first dozen hours with Satisfactory.\n\n## The First-Person Difference\n\nEvery other factory game I play, I'm a god looking down. In Satisfactory, I'm a contractor with a hard hat.`, tags:{ genre:["Builder","Survival"], artType:"Impressions" }, status:"published", updatedAt:"2024-04-10" },
-  ],
-  tutorials: [
-    { id:"t1", postType:"tutorial", game:"Workers & Resources: Soviet Republic", title:"Workers, Housing & Resource Flow — A Beginner's Field Manual", content:`## Preamble\n\nWorkers & Resources: Soviet Republic is one of the most demanding city builders ever made.\n\n## Common Mistakes\n\n- Building factories before housing.\n- Ignoring transport. A factory with no bus stop is a sculpture.`, tags:{ genre:["City Builder","Strategy","Management"], difficulty:"Beginner" }, status:"published", updatedAt:"2024-04-05" },
-  ],
-  about: { content:`## Who is Audwn?\n\nA strategy and builder game enthusiast documenting the games worth playing, the mechanics worth understanding, and the ones that changed how I think about systems.\n\n## What gets covered\n\n- Factory and automation games\n- City builders and logistics sims\n- Grand strategy and 4X\n- Management and economic builders\n\n## Notice\n\nThis notebook contains no personal identifying information. Just the games and the notes.` },
-};
-
-// ─── TAG COLORS ──────────────────────────────────────────────────────────────────
-const TAG_COLORS = {
-  Playing:{bg:"#0d2b1a",text:"#3ddc84",border:"#1a4a2a"},Completed:{bg:"#0d1e2b",text:"#5ba4cf",border:"#1a3a4a"},"On Hold":{bg:"#2b2710",text:"#e6c84a",border:"#4a4218"},Abandoned:{bg:"#2b0f0f",text:"#e05555",border:"#4a1a1a"},Backlog:{bg:"#1a1a1a",text:"#7a8899",border:"#2a2e33"},Wishlist:{bg:"#1e0d2b",text:"#b06ee8",border:"#3a1a4a"},Critical:{bg:"#2b0d0d",text:"#ff4444",border:"#500f0f"},High:{bg:"#2b1a0d",text:"#f0850a",border:"#50300f"},Medium:{bg:"#2b2710",text:"#e6c84a",border:"#4a4218"},Low:{bg:"#0d2b2a",text:"#22d3c8",border:"#1a4a48"},Strategy:{bg:"#0d1e2b",text:"#5ba4cf",border:"#1a3050"},Builder:{bg:"#1a2b0d",text:"#7ec845",border:"#2a4a18"},"4X":{bg:"#2b1e0d",text:"#d4a04a",border:"#4a3010"},Survival:{bg:"#2b1a0d",text:"#f0850a",border:"#50300f"},Sandbox:{bg:"#1a0d2b",text:"#a06ee8",border:"#30184a"},"City Builder":{bg:"#0d2b2a",text:"#22d3c8",border:"#1a4840"},RTS:{bg:"#2b0d0d",text:"#e05555",border:"#4a1010"},Space:{bg:"#0a0a2b",text:"#6699ff",border:"#10103a"},Puzzle:{bg:"#2b0d1e",text:"#f06ea8",border:"#4a1030"},Management:{bg:"#0d2010",text:"#4dcc88",border:"#1a3a28"},Transport:{bg:"#0d1a2b",text:"#5ba4ff",border:"#1a3050"},Economic:{bg:"#2b250d",text:"#f0c84a",border:"#4a4010"},Impressions:{bg:"#0d1e2b",text:"#5ba4cf",border:"#1a3050"},"Deep Dive":{bg:"#0a0a2b",text:"#7799ff",border:"#15153a"},Opinion:{bg:"#2b1e0d",text:"#d4a04a",border:"#4a3010"},"Update Notes":{bg:"#1a2b0d",text:"#7ec845",border:"#2a4a18"},Retrospective:{bg:"#1e0d2b",text:"#b06ee8",border:"#3a1a4a"},Beginner:{bg:"#0d2b1a",text:"#3ddc84",border:"#1a4a2a"},Intermediate:{bg:"#2b2710",text:"#e6c84a",border:"#4a4218"},Advanced:{bg:"#2b1a0d",text:"#f0850a",border:"#50300f"},Expert:{bg:"#2b0d0d",text:"#ff4444",border:"#500f0f"},
-};
-const DEFAULT_TAG_COLOR = { bg:"#1a1e22", text:"#7a8899", border:"#2a3035" };
-const SECTION_ACCENT    = { home:"#f0a500", reviews:"#f0a500", articles:"#5ba4cf", tutorials:"#3ddc84", about:"#a06ee8" };
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────────
 const fmtDate = (d) => { try { return new Date(d).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}); } catch(e) { return ""; } };
