@@ -4,4 +4,4 @@ export const TAG_COLORS = {
 
 export const DEFAULT_TAG_COLOR = { bg:"#1a1e22", text:"#7a8899", border:"#2a3035" };
 
-export const SECTION_ACCENT = { home:"#f0a500", reviews:"#f0a500", articles:"#5ba4cf", tutorials:"#3ddc84", about:"#a06ee8" };
+export const SECTION_ACCENT = { home:"#f0a500", reviews:"#f0a500", articles:"#5ba4cf", tutorials:"#3ddc84", about:"#a06ee8", games:"#e6c84a", search:"#e6c84a" };

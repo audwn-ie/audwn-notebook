@@ -2,6 +2,7 @@
 title: "First Hours on Massage-2(A-B)b — Notes from the Factory Floor"
 game: "Satisfactory"
 status: published
+publishedAt: "2024-04-10"
 updatedAt: "2024-04-10"
 tags:
   genre:
