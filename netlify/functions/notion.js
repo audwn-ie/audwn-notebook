@@ -152,6 +152,7 @@ exports.handler = async (event) => {
     // ── ABOUT PAGE ────────────────────────────────────────────────────────────
     if (action === "about") {
       const aboutId = process.env.ABOUT_PAGE_ID;
+      if (!aboutId) return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: "ABOUT_PAGE_ID env var is not set" }) };
       const [page, blocks] = await Promise.all([
         notion(`/pages/${aboutId}`),
         notion(`/blocks/${aboutId}/children?page_size=100`),
