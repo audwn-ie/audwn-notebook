@@ -7,15 +7,13 @@ fontLink.href = "https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family
 document.head.appendChild(fontLink);
 
 // ─── NOTION CONFIG ───────────────────────────────────────────────────────────────
-const NOTION_DB   = { reviews:"613ad9ae-ffcd-48f1-95dc-280833d53859", articles:"612bcc33-413d-4ce3-abad-372235c13fed", tutorials:"3ff29b0e-0e31-4516-92e4-0c7057c50beb" };
-const ABOUT_PAGE_ID = "342ad8aa-247a-81dd-9ce3-e9550a24a6b9";
-const API         = "/.netlify/functions/notion";
+const API = "/.netlify/functions/notion";
 
 // ─── NOTION DATA LAYER ───────────────────────────────────────────────────────────
 const notionApi = {
   async list(db)   { const r = await fetch(`${API}?action=list&db=${db}`);    if(!r.ok) throw new Error(); return r.json(); },
   async get(id)    { const r = await fetch(`${API}?action=get&id=${id}`);     if(!r.ok) throw new Error(); return r.json(); },
-  async about()    { const r = await fetch(`${API}?action=get&id=${ABOUT_PAGE_ID}`); if(!r.ok) throw new Error(); return r.json(); },
+  async about()    { const r = await fetch(`${API}?action=about`);            if(!r.ok) throw new Error(); return r.json(); },
 };
 
 // ─── MOCK DATA ───────────────────────────────────────────────────────────────────

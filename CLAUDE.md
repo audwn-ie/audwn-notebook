@@ -25,9 +25,10 @@ Create a `.env` file for local development (never commit it):
 
 ```
 NOTION_TOKEN=secret_xxx
-REVIEWS_DB_ID=613ad9aeffcd48f195dc280833d53859
-ARTICLES_DB_ID=612bcc33413d4ce3abad372235c13fed
-TUTORIALS_DB_ID=3ff29b0e0e31451692e40c7057c50beb
+REVIEWS_DB_ID=<reviews-database-id>
+ARTICLES_DB_ID=<articles-database-id>
+TUTORIALS_DB_ID=<tutorials-database-id>
+ABOUT_PAGE_ID=<about-page-id>
 ```
 
 These same variables must be set in the Netlify dashboard for production. The `NOTION_TOKEN` must come from a Notion Internal Integration that has been explicitly connected to each of the three databases.
