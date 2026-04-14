@@ -14,6 +14,11 @@ function slug(path) {
   return path.split("/").pop().replace(".md", "");
 }
 
+function readTime(content) {
+  const words = content.trim().split(/\s+/).length;
+  return Math.max(1, Math.round(words / 200));
+}
+
 function parsePost(raw, postType, id) {
   const { data, content } = matter(raw);
   return {
@@ -23,7 +28,7 @@ function parsePost(raw, postType, id) {
     game:         data.game         || "",
     score:        data.score        ?? null,
     status:       data.status       || "published",
-    createdAt:    data.createdAt    || "",
+    publishedAt:  data.publishedAt  || data.updatedAt || "",
     updatedAt:    data.updatedAt    || "",
     tags: {
       progress:   data.tags?.progress   || "",
@@ -33,6 +38,7 @@ function parsePost(raw, postType, id) {
       difficulty: data.tags?.difficulty || "",
     },
     content:      content.trim(),
+    readTime:     readTime(content),
     archives:     [],
     coverUrl:     data.coverUrl     || null,
     screenshotUrl: data.screenshotUrl || null,

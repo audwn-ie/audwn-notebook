@@ -2,6 +2,7 @@
 title: "Workers, Housing & Resource Flow — A Beginner's Field Manual"
 game: "Workers & Resources: Soviet Republic"
 status: published
+publishedAt: "2024-04-05"
 updatedAt: "2024-04-05"
 tags:
   genre:

@@ -94,7 +94,7 @@ function PostCard({ post, onClick, accent }) {
           <div style={{ position:"absolute", top:0, left:0, right:0, background:isReview?"#1a0d0d":isArticle?"#0d1a2b":"#0d2b1a", borderBottom:`1px solid ${accent}33`, fontSize:7, textAlign:"center", color:accent, padding:"2px 0", letterSpacing:"0.15em" }}>{post.postType.toUpperCase()}</div>
         </div>
         <div style={{ padding:"12px 16px", flex:1, minWidth:0 }}>
-          <div style={{ fontSize:9, color:"#445", letterSpacing:"0.15em", marginBottom:3 }}>{post.game.toUpperCase()} · {fmtDate(post.updatedAt)}</div>
+          <div style={{ fontSize:9, color:"#445", letterSpacing:"0.15em", marginBottom:3 }}>{post.game.toUpperCase()} · {fmtDate(post.updatedAt)}{post.readTime ? ` · ${post.readTime} MIN` : ""}</div>
           <div style={{ fontFamily:"'Rajdhani',sans-serif", fontSize:15, fontWeight:700, color:hov?accent:"#c8d0d8", lineHeight:1.3, marginBottom:7, transition:"color 0.15s" }}>{post.title}</div>
           <div style={{ fontSize:11, color:"#4a5a66", marginBottom:8, lineHeight:1.5 }}>{excerpt(post.content)}</div>
           <div style={{ display:"flex", flexWrap:"wrap", gap:4, alignItems:"center", justifyContent:"space-between" }}>
@@ -143,7 +143,11 @@ function PostDetail({ post, onBack, accent }) {
               {post.tags?.difficulty && <TagBadge label={post.tags.difficulty} />}
               {isReview && post.tags?.priority && <TagBadge label={post.tags.priority} />}
             </div>
-            <div style={{ fontSize:9, color:"#445", letterSpacing:"0.1em" }}>UPDATED {fmtDate(post.updatedAt)}</div>
+            <div style={{ fontSize:9, color:"#445", letterSpacing:"0.1em", display:"flex", flexDirection:"column", alignItems:"flex-end", gap:2 }}>
+              <span>PUBLISHED {fmtDate(post.publishedAt||post.updatedAt)}</span>
+              {post.updatedAt && post.updatedAt !== post.publishedAt && <span style={{ color:"#e6c84a88" }}>UPDATED {fmtDate(post.updatedAt)}</span>}
+              {post.readTime && <span>{post.readTime} MIN READ</span>}
+            </div>
           </div>
           <div style={{ display:"flex" }}>
             <div style={{ flex:1, padding:24, borderRight:post.coverUrl?"1px solid #1e2428":"none" }}><MD content={post.content} /></div>
@@ -211,6 +215,78 @@ function SectionList({ posts, postType, accent, loading, onSelect }) {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+// ─── SEARCH ──────────────────────────────────────────────────────────────────────
+function SearchPage({ navigate }) {
+  const [query, setQuery] = useState("");
+  const all = [...reviews, ...articles, ...tutorials];
+  const q = query.trim().toLowerCase();
+  const results = q.length > 1
+    ? all.filter(p => p.title.toLowerCase().includes(q) || p.game.toLowerCase().includes(q))
+    : [];
+
+  return (
+    <div style={{ maxWidth:820, margin:"0 auto", paddingBottom:60 }}>
+      <Panel accent="#e6c84a" label="SEARCH // ALL ENTRIES" style={{ marginBottom:20 }}>
+        <div style={{ background:"#0d1015", border:"1px solid #1e2428", borderRadius:2 }}>
+          <input
+            autoFocus
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Search by title or game name…"
+            style={{ width:"100%", boxSizing:"border-box", background:"transparent", border:"none", padding:"14px 20px", fontSize:13, color:"#c8d0d8", fontFamily:"'Share Tech Mono',monospace", letterSpacing:"0.04em", outline:"none" }}
+          />
+        </div>
+      </Panel>
+      {q.length > 1 && (
+        <>
+          <div style={{ fontSize:9, color:"#445", letterSpacing:"0.2em", marginBottom:14 }}>
+            {results.length} RESULT{results.length !== 1 ? "S" : ""} FOR "{query.toUpperCase()}"
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+            {results.length === 0
+              ? <div style={{ padding:"40px", textAlign:"center", color:"#2a3035", fontSize:11, letterSpacing:"0.12em", border:"1px dashed #1a1e22", borderRadius:2 }}>NO MATCHES FOUND</div>
+              : results.map(p => {
+                  const sec = p.postType==="review"?"reviews":p.postType==="article"?"articles":"tutorials";
+                  return <PostCard key={p.id} post={p} accent={SECTION_ACCENT[sec]} onClick={() => navigate(sec, p.id)} />;
+                })
+            }
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── GAME INDEX ───────────────────────────────────────────────────────────────────
+function GameIndex({ navigate }) {
+  const all = [...reviews, ...articles, ...tutorials];
+  const byGame = {};
+  for (const post of all) {
+    if (!byGame[post.game]) byGame[post.game] = [];
+    byGame[post.game].push(post);
+  }
+  const games = Object.entries(byGame).sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]));
+
+  return (
+    <div style={{ maxWidth:820, margin:"0 auto", paddingBottom:60 }}>
+      {games.map(([game, posts]) => (
+        <div key={game} style={{ marginBottom:32 }}>
+          <div style={{ display:"flex", alignItems:"baseline", gap:12, borderBottom:"1px solid #1e2428", paddingBottom:8, marginBottom:12 }}>
+            <span style={{ fontFamily:"'Rajdhani',sans-serif", fontSize:18, fontWeight:700, color:"#c8d0d8" }}>{game}</span>
+            <span style={{ fontSize:9, color:"#445", letterSpacing:"0.12em" }}>{posts.length} ENTR{posts.length !== 1 ? "IES" : "Y"}</span>
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {posts.map(p => {
+              const sec = p.postType==="review"?"reviews":p.postType==="article"?"articles":"tutorials";
+              return <PostCard key={p.id} post={p} accent={SECTION_ACCENT[sec]} onClick={() => navigate(sec, p.id)} />;
+            })}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -304,7 +380,7 @@ export default function App() {
   const accent   = SECTION_ACCENT[section]||"#f0a500";
   const store    = DATA[section]||[];
   const selected = store.find(p=>p.id===selId);
-  const navItems = [{key:"home",label:"HOME"},{key:"reviews",label:"REVIEWS"},{key:"articles",label:"ARTICLES"},{key:"tutorials",label:"TUTORIALS"},{key:"about",label:"ABOUT"}];
+  const navItems = [{key:"home",label:"HOME"},{key:"reviews",label:"REVIEWS"},{key:"articles",label:"ARTICLES"},{key:"tutorials",label:"TUTORIALS"},{key:"games",label:"GAMES"},{key:"search",label:"SEARCH"},{key:"about",label:"ABOUT"}];
 
   return (
     <div style={{ fontFamily:"'Share Tech Mono',monospace", background:"#080b0d", minHeight:"100vh", color:"#b8c4cc", position:"relative", backgroundImage:`linear-gradient(rgba(0,180,160,0.035) 1px, transparent 1px),linear-gradient(90deg, rgba(0,180,160,0.035) 1px, transparent 1px)`, backgroundSize:"32px 32px" }}>
@@ -345,8 +421,10 @@ export default function App() {
         )}
 
         {/* PAGES */}
-        {section==="home"  && <HomePage navigate={navigate} />}
-        {section==="about" && <AboutPage content={about.content} />}
+        {section==="home"   && <HomePage navigate={navigate} />}
+        {section==="about"  && <AboutPage content={about.content} />}
+        {section==="search" && <SearchPage navigate={navigate} />}
+        {section==="games"  && <GameIndex navigate={navigate} />}
 
         {["reviews","articles","tutorials"].includes(section) && view==="list" && (
           <SectionList posts={store} postType={section==="reviews"?"review":section==="articles"?"article":"tutorial"} accent={accent} loading={false} onSelect={id=>{setSelId(id);setView("detail");}} />

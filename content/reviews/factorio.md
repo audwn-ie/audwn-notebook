@@ -3,6 +3,7 @@ title: "The Infinite Factory — Still the Gold Standard"
 game: "Factorio"
 score: 10.0
 status: published
+publishedAt: "2024-01-15"
 updatedAt: "2024-01-15"
 tags:
   progress: Completed

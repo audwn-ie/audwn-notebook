@@ -3,6 +3,7 @@ title: "A Blueprint for Wonder — Factory Building at Galactic Scale"
 game: "Dyson Sphere Program"
 score: 9.2
 status: published
+publishedAt: "2024-01-10"
 updatedAt: "2024-03-01"
 tags:
   progress: Completed
