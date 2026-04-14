@@ -4,9 +4,10 @@
  *
  * Required environment variables in Netlify dashboard:
  *   NOTION_TOKEN      — your Internal Integration Token (secret_xxx)
- *   REVIEWS_DB_ID     — 613ad9aeffcd48f195dc280833d53859
- *   ARTICLES_DB_ID    — 612bcc33413d4ce3abad372235c13fed
- *   TUTORIALS_DB_ID   — 3ff29b0e0e31451692e40c7057c50beb
+ *   REVIEWS_DB_ID     — Notion database ID for reviews
+ *   ARTICLES_DB_ID    — Notion database ID for articles
+ *   TUTORIALS_DB_ID   — Notion database ID for tutorials
+ *   ABOUT_PAGE_ID     — Notion page ID for the About page
  *
  * Endpoints (all via /.netlify/functions/notion):
  *   GET  ?action=list&db=reviews|articles|tutorials
@@ -149,17 +150,18 @@ exports.handler = async (event) => {
 
   try {
     // ── ABOUT PAGE ────────────────────────────────────────────────────────────
-    if (action === "get" && id === "342ad8aa-247a-81dd-9ce3-e9550a24a6b9") {
+    if (action === "about") {
+      const aboutId = process.env.ABOUT_PAGE_ID;
       const [page, blocks] = await Promise.all([
-        notion(`/pages/${id}`),
-        notion(`/blocks/${id}/children?page_size=100`),
+        notion(`/pages/${aboutId}`),
+        notion(`/blocks/${aboutId}/children?page_size=100`),
       ]);
       return { statusCode: 200, headers: CORS, body: JSON.stringify({
         id: page.id, content: blocksToMd(blocks.results || []),
       })};
     }
 
-        // ── LIST ──────────────────────────────────────────────────────────────────
+    // ── LIST ──────────────────────────────────────────────────────────────────
     if (action === "list") {
       const dbId = DB[db];
       if (!dbId) return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: "Unknown db" }) };

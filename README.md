@@ -66,9 +66,10 @@ In Netlify: **Site settings → Environment variables → Add variable**
 | Key               | Value                                    |
 |-------------------|------------------------------------------|
 | `NOTION_TOKEN`    | `secret_xxxxxxxxxxxx`                    |
-| `REVIEWS_DB_ID`   | `613ad9aeffcd48f195dc280833d53859`       |
-| `ARTICLES_DB_ID`  | `612bcc33413d4ce3abad372235c13fed`       |
-| `TUTORIALS_DB_ID` | `3ff29b0e0e31451692e40c7057c50beb`       |
+| `REVIEWS_DB_ID`   | your Reviews database ID                 |
+| `ARTICLES_DB_ID`  | your Articles database ID                |
+| `TUTORIALS_DB_ID` | your Tutorials database ID               |
+| `ABOUT_PAGE_ID`   | your About page ID                       |
 
 Then **Trigger redeploy** (Deploys → Trigger deploy → Deploy site).
 
@@ -84,9 +85,10 @@ npm install -g netlify-cli
 
 # Create a .env file for local dev
 echo 'NOTION_TOKEN=secret_xxx
-REVIEWS_DB_ID=613ad9aeffcd48f195dc280833d53859
-ARTICLES_DB_ID=612bcc33413d4ce3abad372235c13fed
-TUTORIALS_DB_ID=3ff29b0e0e31451692e40c7057c50beb' > .env
+REVIEWS_DB_ID=your-reviews-db-id
+ARTICLES_DB_ID=your-articles-db-id
+TUTORIALS_DB_ID=your-tutorials-db-id
+ABOUT_PAGE_ID=your-about-page-id' > .env
 
 netlify dev
 # → http://localhost:8888
