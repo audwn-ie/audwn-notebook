@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { marked } from "marked";
 import { TAG_COLORS, DEFAULT_TAG_COLOR, SECTION_ACCENT } from "./constants/tagColors.js";
-import { MOCK } from "./constants/mockData.js";
 
 // ─── FONTS ──────────────────────────────────────────────────────────────────────
 const fontLink = document.createElement("link");
@@ -234,11 +233,12 @@ function SectionList({ posts, postType, accent, loading, onSelect }) {
 }
 
 // ─── HOME PAGE ───────────────────────────────────────────────────────────────────
-function HomePage({ data, isDemo, navigate }) {
+function HomePage({ data, loading, navigate }) {
   const reviews=data.reviews||[], articles=data.articles||[], tutorials=data.tutorials||[];
   const completed=reviews.filter(r=>r.tags?.progress==="Completed").length;
   const playing=reviews.filter(r=>r.tags?.progress==="Playing").length;
   const recent=[...reviews,...articles,...tutorials].sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt)).slice(0,4);
+  const isLoading = loading.reviews || loading.articles || loading.tutorials;
 
   const Stat=({val,label,color})=>(
     <div style={{ textAlign:"center", padding:"12px 16px", background:"#0a0c0f", border:"1px solid #1e2428", borderRadius:2, flex:1, minWidth:0 }}>
@@ -249,12 +249,6 @@ function HomePage({ data, isDemo, navigate }) {
 
   return (
     <div style={{ maxWidth:820, margin:"0 auto", paddingBottom:60 }}>
-      {isDemo && (
-        <div style={{ background:"#0d1015", border:"1px solid #1e2428", borderRadius:2, padding:"10px 16px", marginBottom:20, display:"flex", alignItems:"center", gap:10 }}>
-          <span style={{ color:"#e05555", fontSize:10 }}>◈</span>
-          <span style={{ fontSize:9, color:"#3a4a56", letterSpacing:"0.15em" }}>SIGNAL LOST — RUNNING ON CACHED DATA</span>
-        </div>
-      )}
       <Panel accent="#f0a500" style={{ marginBottom:24 }}>
         <div style={{ background:"#0d1015", border:"1px solid #1e2428", borderRadius:2, padding:"28px 28px 24px" }}>
           <div style={{ fontSize:8, color:"#f0a50088", letterSpacing:"0.3em", marginBottom:8 }}>PERSONAL LOG // STRATEGY & BUILDER GAMES</div>
@@ -278,12 +272,18 @@ function HomePage({ data, isDemo, navigate }) {
         <Stat val={completed}        label="COMPLETED" color="#7ec845" />
       </div>
       <div style={{ fontSize:9, color:"#445", letterSpacing:"0.2em", marginBottom:14 }}>RECENT ENTRIES</div>
-      <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-        {recent.map(p=>{
-          const sec=p.postType==="review"?"reviews":p.postType==="article"?"articles":"tutorials";
-          return <PostCard key={p.id} post={p} accent={SECTION_ACCENT[sec]} onClick={()=>navigate(sec,p.id)} />;
-        })}
-      </div>
+      {isLoading
+        ? <Loading accent="#f0a500" />
+        : <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+            {recent.length===0
+              ? <div style={{ padding:"40px", textAlign:"center", color:"#2a3035", fontSize:11, letterSpacing:"0.12em", border:"1px dashed #1a1e22", borderRadius:2 }}>NO ENTRIES FOUND</div>
+              : recent.map(p=>{
+                  const sec=p.postType==="review"?"reviews":p.postType==="article"?"articles":"tutorials";
+                  return <PostCard key={p.id} post={p} accent={SECTION_ACCENT[sec]} onClick={()=>navigate(sec,p.id)} />;
+                })
+            }
+          </div>
+      }
     </div>
   );
 }
@@ -318,41 +318,42 @@ function AboutPage({ content, loading }) {
 
 // ─── APP ─────────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [data,    setData]    = useState({ reviews:MOCK.reviews, articles:MOCK.articles, tutorials:MOCK.tutorials });
-  const [about,   setAbout]   = useState(MOCK.about);
-  const [loading, setLoading] = useState({});
-  const [isDemo,  setIsDemo]  = useState(true);
+  const [data,    setData]    = useState({ reviews:[], articles:[], tutorials:[] });
+  const [about,   setAbout]   = useState(null);
+  const [loading, setLoading] = useState({ reviews:true, articles:true, tutorials:true, about:false });
+  const [online,  setOnline]  = useState(null); // null=connecting, true=online, false=error
   const [section, setSection] = useState("home");
   const [view,    setView]    = useState("list");
   const [selId,   setSelId]   = useState(null);
 
   const navigate = useCallback((sec, id=null) => { setSection(sec); setSelId(id); setView(id?"detail":"list"); }, []);
 
-  // Load section data from Notion
+  // Fetch all sections on mount
   useEffect(() => {
-    if(!["reviews","articles","tutorials"].includes(section)) return;
-    if(data[section] !== MOCK[section] && data[section]?.length) return; // already loaded real data
-    setLoading(l=>({...l,[section]:true}));
-    notionApi.list(section)
-      .then(posts => { setData(d=>({...d,[section]:posts})); setIsDemo(false); })
-      .catch(() => {})
-      .finally(() => setLoading(l=>({...l,[section]:false})));
-  }, [section]);
+    const load = (db) =>
+      notionApi.list(db)
+        .then(posts => { setData(d => ({...d, [db]:posts})); return true; })
+        .catch(() => false)
+        .finally(() => setLoading(l => ({...l, [db]:false})));
+
+    Promise.all(["reviews","articles","tutorials"].map(load))
+      .then(results => setOnline(results.some(Boolean)));
+  }, []);
 
   // Load full post on detail view
   useEffect(() => {
-    if(view!=="detail"||!selId||isDemo) return;
+    if(view!=="detail"||!selId) return;
     const existing = (data[section]||[]).find(p=>p.id===selId);
     if(existing?.content) return;
     notionApi.get(selId).then(post => setData(d=>({...d,[section]:d[section].map(p=>p.id===post.id?{...p,...post}:p)}))).catch(()=>{});
   }, [view, selId]);
 
-  // Load about page
+  // Load about page (lazy — only when navigating there)
   useEffect(() => {
     if(section!=="about") return;
     setLoading(l=>({...l,about:true}));
     notionApi.about()
-      .then(page => { setAbout(page); setIsDemo(false); })
+      .then(page => setAbout(page))
       .catch(() => {})
       .finally(() => setLoading(l=>({...l,about:false})));
   }, [section]);
@@ -378,8 +379,8 @@ export default function App() {
                 <span style={{ fontSize:13, color:"#c8d0d8", letterSpacing:"0.2em" }}>NOTEBOOK</span>
               </div>
             </button>
-            <div style={{ fontSize:8, color:isDemo?"#e05555":"#3ddc84", letterSpacing:"0.12em", border:`1px solid ${isDemo?"#4a1010":"#1a4a2a"}`, padding:"3px 8px", borderRadius:2 }}>
-              {isDemo ? "◈ SIGNAL LOST" : "⊙ STEADY ORBIT"}
+            <div style={{ fontSize:8, color:online===null?"#e6c84a":online?"#3ddc84":"#e05555", letterSpacing:"0.12em", border:`1px solid ${online===null?"#4a4218":online?"#1a4a2a":"#4a1010"}`, padding:"3px 8px", borderRadius:2 }}>
+              {online===null ? "◌ CONNECTING" : online ? "⊙ STEADY ORBIT" : "◈ SIGNAL LOST"}
             </div>
           </div>
           <div style={{ display:"flex", gap:0, borderTop:"1px solid #1a1e22" }}>
@@ -404,7 +405,7 @@ export default function App() {
         )}
 
         {/* PAGES */}
-        {section==="home"  && <HomePage data={data} isDemo={isDemo} navigate={navigate} />}
+        {section==="home"  && <HomePage data={data} loading={loading} navigate={navigate} />}
         {section==="about" && <AboutPage content={about?.content||""} loading={!!loading.about} />}
 
         {["reviews","articles","tutorials"].includes(section) && view==="list" && (
