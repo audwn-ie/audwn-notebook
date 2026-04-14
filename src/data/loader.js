@@ -1,4 +1,17 @@
-import matter from "gray-matter";
+import yaml from "js-yaml";
+
+// ─── Frontmatter parser (browser-safe; gray-matter uses Node's Buffer) ──────────
+
+function matter(raw) {
+  const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
+  if (!match) return { data: {}, content: raw.trim() };
+  try {
+    const data = yaml.load(match[1]) || {};
+    return { data, content: match[2] };
+  } catch {
+    return { data: {}, content: raw.trim() };
+  }
+}
 
 // ─── Raw file imports (eager = bundled at build time, zero runtime fetches) ────
 
