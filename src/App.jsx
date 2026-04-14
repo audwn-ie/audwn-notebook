@@ -13,9 +13,9 @@ const API = "/.netlify/functions/notion";
 
 // ─── NOTION DATA LAYER ───────────────────────────────────────────────────────────
 const notionApi = {
-  async list(db)   { const r = await fetch(`${API}?action=list&db=${db}`);    if(!r.ok) throw new Error(); return r.json(); },
-  async get(id)    { const r = await fetch(`${API}?action=get&id=${id}`);     if(!r.ok) throw new Error(); return r.json(); },
-  async about()    { const r = await fetch(`${API}?action=about`);            if(!r.ok) throw new Error(); return r.json(); },
+  async list(db)   { const r = await fetch(`${API}?action=list&db=${db}`);    if(!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.error||r.statusText); } return r.json(); },
+  async get(id)    { const r = await fetch(`${API}?action=get&id=${id}`);     if(!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.error||r.statusText); } return r.json(); },
+  async about()    { const r = await fetch(`${API}?action=about`);            if(!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.error||r.statusText); } return r.json(); },
 };
 
 
