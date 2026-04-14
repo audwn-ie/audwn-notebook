@@ -192,10 +192,66 @@ function normalisePage(p, postType, content = "") {
     createdAt: p.created_time?.slice(0, 10) || "",
     updatedAt: p.last_edited_time?.slice(0, 10) || "",
     content,
-    archives: [], // archives are managed in app state; Notion stores latest only
+    archives: [], // populated by fetchArchives() in action=get for reviews
     coverUrl: null,
     screenshotUrl: null,
   };
+}
+
+// ─── Archive helpers ──────────────────────────────────────────────────────────
+
+// Save the current state of a review as a child page before overwriting.
+// The first block of the archive page is a JSON metadata paragraph;
+// the remaining blocks are the archived content.
+async function createArchivePage(pageId, currentPage, currentBlocks) {
+  const prop = (key) => currentPage.properties?.[key];
+  const meta = {
+    archivedAt: new Date().toISOString().slice(0, 10),
+    score: prop("Score")?.number ?? null,
+    progress: prop("Progress")?.select?.name || "",
+  };
+  const metaBlock = {
+    object: "block", type: "paragraph",
+    paragraph: { rich_text: [{ type: "text", text: { content: `ARCHIVE_META:${JSON.stringify(meta)}` } }] },
+  };
+  await notion("/pages", "POST", {
+    parent: { page_id: pageId },
+    properties: { title: { title: [{ text: { content: `ARCHIVE // ${meta.archivedAt}` } }] } },
+    children: [metaBlock, ...currentBlocks.filter((b) => b.type !== "child_page")],
+  });
+}
+
+// Fetch all archive child pages for a review and return them as archive objects.
+async function fetchArchives(pageId) {
+  const children = await notion(`/blocks/${pageId}/children?page_size=100`);
+  const archiveBlocks = (children.results || []).filter(
+    (b) => b.type === "child_page" && b.child_page?.title?.startsWith("ARCHIVE //")
+  );
+  if (!archiveBlocks.length) return [];
+
+  const archives = await Promise.all(
+    archiveBlocks.map(async (b) => {
+      const blocks = await notion(`/blocks/${b.id}/children?page_size=100`);
+      const results = blocks.results || [];
+      // First block is the metadata paragraph
+      const metaBlock = results[0];
+      const metaText = metaBlock?.paragraph?.rich_text?.[0]?.plain_text || "";
+      let meta = {};
+      if (metaText.startsWith("ARCHIVE_META:")) {
+        try { meta = JSON.parse(metaText.slice(13)); } catch (_) { /* ignore */ }
+      }
+      const content = blocksToMd(results.slice(1));
+      return {
+        id: b.id,
+        archivedAt: meta.archivedAt || b.child_page.title.replace("ARCHIVE // ", ""),
+        score: meta.score ?? null,
+        tags: { progress: meta.progress || "" },
+        content,
+      };
+    })
+  );
+  // Most recent first
+  return archives.sort((a, b) => b.archivedAt.localeCompare(a.archivedAt));
 }
 
 // ─── Handler ───────────────────────────────────────────────────────────────────
@@ -258,17 +314,20 @@ exports.handler = async (event) => {
         notion(`/pages/${id}`),
         notion(`/blocks/${id}/children?page_size=100`),
       ]);
-      const content = blocksToMd(blocks.results || []);
+      const content = blocksToMd((blocks.results || []).filter((b) => b.type !== "child_page"));
       // Determine postType from which DB the page belongs to
       const dbId = page.parent?.database_id?.replace(/-/g, "");
       const postType =
         dbId === DB.reviews?.replace(/-/g, "")   ? "review"   :
         dbId === DB.articles?.replace(/-/g, "")  ? "article"  : "tutorial";
 
+      const post = normalisePage(page, postType, content);
+      if (postType === "review") post.archives = await fetchArchives(id);
+
       return {
         statusCode: 200,
         headers: CORS,
-        body: JSON.stringify(normalisePage(page, postType, content)),
+        body: JSON.stringify(post),
       };
     }
 
@@ -295,14 +354,23 @@ exports.handler = async (event) => {
     if (action === "update" && event.httpMethod === "POST") {
       const data = JSON.parse(event.body);
 
-      // 1. Update properties
+      // 1. Fetch current state before overwriting
+      const [currentPage, existing] = await Promise.all([
+        notion(`/pages/${id}`),
+        notion(`/blocks/${id}/children?page_size=100`),
+      ]);
+
+      // 2. Archive the current version for reviews before overwriting
+      if (data.postType === "review") {
+        await createArchivePage(id, currentPage, existing.results || []);
+      }
+
+      // 3. Update properties
       await notion(`/pages/${id}`, "PATCH", { properties: buildProps(data) });
 
-      // 2. Replace content blocks
-      const existing = await notion(`/blocks/${id}/children?page_size=100`);
-      await Promise.all(
-        (existing.results || []).map((b) => notion(`/blocks/${b.id}`, "DELETE"))
-      );
+      // 4. Replace content blocks (skip child_page blocks — those are archives)
+      const contentBlocks = (existing.results || []).filter((b) => b.type !== "child_page");
+      await Promise.all(contentBlocks.map((b) => notion(`/blocks/${b.id}`, "DELETE")));
       await notion(`/blocks/${id}/children`, "PATCH", {
         children: mdToBlocks(data.content),
       });
