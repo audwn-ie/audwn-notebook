@@ -92,3 +92,7 @@ Deployment is automatic: every push to `main` triggers Netlify to run `npm run b
 - **Adding a new section/content type** — requires changes in both `App.jsx` (UI, state, `notionApi` calls, mock data) and `notion.js` (new DB env var, normalization logic, list/create/update routing).
 - **Content is Markdown** — the `content` field on all posts is a Markdown string. The `MD` component in `App.jsx` renders it; `mdToBlocks`/`blocksToMd` in `notion.js` handle the Notion ↔ Markdown conversion.
 - **DEMO mode** — if any API call throws, the app silently falls back to `MOCK` data and shows a DEMO banner. This is intentional and should be preserved.
+
+## Workflow
+
+After completing and pushing a set of changes, always open a pull request against `main`.
