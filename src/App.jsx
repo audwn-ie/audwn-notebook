@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { marked } from "marked";
 import { TAG_COLORS, DEFAULT_TAG_COLOR, SECTION_ACCENT } from "./constants/tagColors.js";
+import { reviews, articles, tutorials, about } from "./data/loader.js";
 
 // ─── FONTS ──────────────────────────────────────────────────────────────────────
 const fontLink = document.createElement("link");
@@ -8,15 +9,6 @@ fontLink.rel = "stylesheet";
 fontLink.href = "https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&family=Orbitron:wght@700;900&display=swap";
 document.head.appendChild(fontLink);
 
-// ─── NOTION CONFIG ───────────────────────────────────────────────────────────────
-const API = "/.netlify/functions/notion";
-
-// ─── NOTION DATA LAYER ───────────────────────────────────────────────────────────
-const notionApi = {
-  async list(db)   { const r = await fetch(`${API}?action=list&db=${db}`);    if(!r.ok) throw new Error(); return r.json(); },
-  async get(id)    { const r = await fetch(`${API}?action=get&id=${id}`);     if(!r.ok) throw new Error(); return r.json(); },
-  async about()    { const r = await fetch(`${API}?action=about`);            if(!r.ok) throw new Error(); return r.json(); },
-};
 
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────────
@@ -85,15 +77,6 @@ function MD({ content }) {
   );
 }
 
-// ─── LOADING ─────────────────────────────────────────────────────────────────────
-function Loading({ accent="#f0a500" }) {
-  return (
-    <div style={{ padding:"60px 0", textAlign:"center" }}>
-      <div style={{ fontFamily:"'Orbitron',monospace", fontSize:10, color:accent+"66", letterSpacing:"0.2em", marginBottom:8 }}>LOADING FROM NOTION</div>
-      <div style={{ fontSize:9, color:"#2a3035", letterSpacing:"0.1em" }}>Fetching data…</div>
-    </div>
-  );
-}
 
 // ─── POST CARD ───────────────────────────────────────────────────────────────────
 function PostCard({ post, onClick, accent }) {
@@ -233,12 +216,10 @@ function SectionList({ posts, postType, accent, loading, onSelect }) {
 }
 
 // ─── HOME PAGE ───────────────────────────────────────────────────────────────────
-function HomePage({ data, loading, navigate }) {
-  const reviews=data.reviews||[], articles=data.articles||[], tutorials=data.tutorials||[];
+function HomePage({ navigate }) {
   const completed=reviews.filter(r=>r.tags?.progress==="Completed").length;
   const playing=reviews.filter(r=>r.tags?.progress==="Playing").length;
   const recent=[...reviews,...articles,...tutorials].sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt)).slice(0,4);
-  const isLoading = loading.reviews || loading.articles || loading.tutorials;
 
   const Stat=({val,label,color})=>(
     <div style={{ textAlign:"center", padding:"12px 16px", background:"#0a0c0f", border:"1px solid #1e2428", borderRadius:2, flex:1, minWidth:0 }}>
@@ -272,24 +253,18 @@ function HomePage({ data, loading, navigate }) {
         <Stat val={completed}        label="COMPLETED" color="#7ec845" />
       </div>
       <div style={{ fontSize:9, color:"#445", letterSpacing:"0.2em", marginBottom:14 }}>RECENT ENTRIES</div>
-      {isLoading
-        ? <Loading accent="#f0a500" />
-        : <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-            {recent.length===0
-              ? <div style={{ padding:"40px", textAlign:"center", color:"#2a3035", fontSize:11, letterSpacing:"0.12em", border:"1px dashed #1a1e22", borderRadius:2 }}>NO ENTRIES FOUND</div>
-              : recent.map(p=>{
-                  const sec=p.postType==="review"?"reviews":p.postType==="article"?"articles":"tutorials";
-                  return <PostCard key={p.id} post={p} accent={SECTION_ACCENT[sec]} onClick={()=>navigate(sec,p.id)} />;
-                })
-            }
-          </div>
-      }
+      <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+        {recent.map(p=>{
+          const sec=p.postType==="review"?"reviews":p.postType==="article"?"articles":"tutorials";
+          return <PostCard key={p.id} post={p} accent={SECTION_ACCENT[sec]} onClick={()=>navigate(sec,p.id)} />;
+        })}
+      </div>
     </div>
   );
 }
 
 // ─── ABOUT PAGE ──────────────────────────────────────────────────────────────────
-function AboutPage({ content, loading }) {
+function AboutPage({ content }) {
   return (
     <div style={{ maxWidth:820, margin:"0 auto", paddingBottom:60 }}>
       <Panel accent="#a06ee8" label="ABOUT // FIELD OPERATOR PROFILE" style={{ marginBottom:24 }}>
@@ -307,7 +282,7 @@ function AboutPage({ content, loading }) {
             </div>
           </div>
           <div style={{ padding:"24px 28px" }}>
-            {loading ? <Loading accent="#a06ee8" /> : <MD content={content} />}
+            <MD content={content} />
 
           </div>
         </div>
@@ -317,49 +292,17 @@ function AboutPage({ content, loading }) {
 }
 
 // ─── APP ─────────────────────────────────────────────────────────────────────────
+const DATA = { reviews, articles, tutorials };
+
 export default function App() {
-  const [data,    setData]    = useState({ reviews:[], articles:[], tutorials:[] });
-  const [about,   setAbout]   = useState(null);
-  const [loading, setLoading] = useState({ reviews:true, articles:true, tutorials:true, about:false });
-  const [online,  setOnline]  = useState(null); // null=connecting, true=online, false=error
   const [section, setSection] = useState("home");
   const [view,    setView]    = useState("list");
   const [selId,   setSelId]   = useState(null);
 
-  const navigate = useCallback((sec, id=null) => { setSection(sec); setSelId(id); setView(id?"detail":"list"); }, []);
-
-  // Fetch all sections on mount
-  useEffect(() => {
-    const load = (db) =>
-      notionApi.list(db)
-        .then(posts => { setData(d => ({...d, [db]:posts})); return true; })
-        .catch(() => false)
-        .finally(() => setLoading(l => ({...l, [db]:false})));
-
-    Promise.all(["reviews","articles","tutorials"].map(load))
-      .then(results => setOnline(results.some(Boolean)));
-  }, []);
-
-  // Load full post on detail view
-  useEffect(() => {
-    if(view!=="detail"||!selId) return;
-    const existing = (data[section]||[]).find(p=>p.id===selId);
-    if(existing?.content) return;
-    notionApi.get(selId).then(post => setData(d=>({...d,[section]:d[section].map(p=>p.id===post.id?{...p,...post}:p)}))).catch(()=>{});
-  }, [view, selId]);
-
-  // Load about page (lazy — only when navigating there)
-  useEffect(() => {
-    if(section!=="about") return;
-    setLoading(l=>({...l,about:true}));
-    notionApi.about()
-      .then(page => setAbout(page))
-      .catch(() => {})
-      .finally(() => setLoading(l=>({...l,about:false})));
-  }, [section]);
+  const navigate = (sec, id=null) => { setSection(sec); setSelId(id); setView(id?"detail":"list"); };
 
   const accent   = SECTION_ACCENT[section]||"#f0a500";
-  const store    = data[section]||[];
+  const store    = DATA[section]||[];
   const selected = store.find(p=>p.id===selId);
   const navItems = [{key:"home",label:"HOME"},{key:"reviews",label:"REVIEWS"},{key:"articles",label:"ARTICLES"},{key:"tutorials",label:"TUTORIALS"},{key:"about",label:"ABOUT"}];
 
@@ -379,9 +322,6 @@ export default function App() {
                 <span style={{ fontSize:13, color:"#c8d0d8", letterSpacing:"0.2em" }}>NOTEBOOK</span>
               </div>
             </button>
-            <div style={{ fontSize:8, color:online===null?"#e6c84a":online?"#3ddc84":"#e05555", letterSpacing:"0.12em", border:`1px solid ${online===null?"#4a4218":online?"#1a4a2a":"#4a1010"}`, padding:"3px 8px", borderRadius:2 }}>
-              {online===null ? "◌ CONNECTING" : online ? "⊙ STEADY ORBIT" : "◈ SIGNAL LOST"}
-            </div>
           </div>
           <div style={{ display:"flex", gap:0, borderTop:"1px solid #1a1e22" }}>
             {navItems.map(({key,label})=>{
@@ -405,11 +345,11 @@ export default function App() {
         )}
 
         {/* PAGES */}
-        {section==="home"  && <HomePage data={data} loading={loading} navigate={navigate} />}
-        {section==="about" && <AboutPage content={about?.content||""} loading={!!loading.about} />}
+        {section==="home"  && <HomePage navigate={navigate} />}
+        {section==="about" && <AboutPage content={about.content} />}
 
         {["reviews","articles","tutorials"].includes(section) && view==="list" && (
-          <SectionList posts={store} postType={section==="reviews"?"review":section==="articles"?"article":"tutorial"} accent={accent} loading={!!loading[section]} onSelect={id=>{setSelId(id);setView("detail");}} />
+          <SectionList posts={store} postType={section==="reviews"?"review":section==="articles"?"article":"tutorial"} accent={accent} loading={false} onSelect={id=>{setSelId(id);setView("detail");}} />
         )}
 
         {["reviews","articles","tutorials"].includes(section) && view==="detail" && selected && (
