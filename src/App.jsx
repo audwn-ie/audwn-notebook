@@ -254,12 +254,9 @@ function HomePage({ data, isDemo, navigate }) {
   return (
     <div style={{ maxWidth:820, margin:"0 auto", paddingBottom:60 }}>
       {isDemo && (
-        <div style={{ background:"#1a150d", border:"1px solid #4a4218", borderRadius:2, padding:"10px 16px", marginBottom:20, display:"flex", alignItems:"center", gap:10 }}>
-          <span style={{ color:"#e6c84a", fontSize:14 }}>⚠</span>
-          <div>
-            <div style={{ fontSize:9, color:"#e6c84a", letterSpacing:"0.15em" }}>DEMO MODE — NOTION NOT CONNECTED</div>
-            <div style={{ fontSize:10, color:"#6a7a86", marginTop:2 }}>Add NOTION_TOKEN to Netlify env vars to go live.</div>
-          </div>
+        <div style={{ background:"#0d1015", border:"1px solid #1e2428", borderRadius:2, padding:"10px 16px", marginBottom:20, display:"flex", alignItems:"center", gap:10 }}>
+          <span style={{ color:"#e05555", fontSize:10 }}>◈</span>
+          <span style={{ fontSize:9, color:"#3a4a56", letterSpacing:"0.15em" }}>SIGNAL LOST — RUNNING ON CACHED DATA</span>
         </div>
       )}
       <Panel accent="#f0a500" style={{ marginBottom:24 }}>
@@ -385,8 +382,8 @@ export default function App() {
                 <span style={{ fontSize:13, color:"#c8d0d8", letterSpacing:"0.2em" }}>NOTEBOOK</span>
               </div>
             </button>
-            <div style={{ fontSize:8, color:isDemo?"#4a3010":"#1a4a2a", letterSpacing:"0.12em", border:`1px solid ${isDemo?"#4a4218":"#1a4a2a"}`, padding:"3px 8px", borderRadius:2 }}>
-              {isDemo ? "⚠ DEMO" : "◉ NOTION LIVE"}
+            <div style={{ fontSize:8, color:isDemo?"#e05555":"#3ddc84", letterSpacing:"0.12em", border:`1px solid ${isDemo?"#4a1010":"#1a4a2a"}`, padding:"3px 8px", borderRadius:2 }}>
+              {isDemo ? "◈ SIGNAL LOST" : "⊙ STEADY ORBIT"}
             </div>
           </div>
           <div style={{ display:"flex", gap:0, borderTop:"1px solid #1a1e22" }}>
