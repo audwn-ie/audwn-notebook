@@ -3,7 +3,7 @@
 ## Project structure
 
 ```
-audwns-notebook/
+audwn-notebook/
   netlify/
     functions/
       notion.js         ← Notion API proxy (serverless function)
@@ -15,16 +15,6 @@ audwns-notebook/
   vite.config.js
   netlify.toml          ← tells Netlify how to build + where functions live
 ```
-
----
-
-## Your Notion Databases (already live)
-
-| Database  | ID                                     |
-|-----------|----------------------------------------|
-| Reviews   | `613ad9ae-ffcd-48f1-95dc-280833d53859` |
-| Articles  | `612bcc33-413d-4ce3-abad-372235c13fed` |
-| Tutorials | `3ff29b0e-0e31-4516-92e4-0c7057c50beb` |
 
 ---
 
