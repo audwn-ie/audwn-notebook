@@ -44,17 +44,32 @@ async function notion(path, method = "GET", body = null) {
 
 // ─── Block converters ──────────────────────────────────────────────────────────
 
+// Convert a Notion rich_text array to a Markdown string, preserving
+// bold, italic, inline code, and links.
+function richTextToMd(rt) {
+  return rt.map((r) => {
+    let text = r.plain_text;
+    if (r.href) text = `[${text}](${r.href})`;
+    if (r.annotations?.code) text = `\`${text}\``;
+    if (r.annotations?.bold && r.annotations?.italic) text = `***${text}***`;
+    else if (r.annotations?.bold) text = `**${text}**`;
+    else if (r.annotations?.italic) text = `*${text}*`;
+    return text;
+  }).join("");
+}
+
 function blocksToMd(blocks) {
   return blocks
     .map((b) => {
       const rt = b[b.type]?.rich_text || [];
-      const text = rt.map((r) => r.plain_text).join("");
+      const text = richTextToMd(rt);
       switch (b.type) {
         case "heading_1": return `# ${text}`;
         case "heading_2": return `## ${text}`;
         case "heading_3": return `### ${text}`;
         case "bulleted_list_item": return `- ${text}`;
         case "numbered_list_item": return `1. ${text}`;
+        case "code": return `\`\`\`\n${b.code?.rich_text?.map((r) => r.plain_text).join("") || ""}\n\`\`\``;
         case "paragraph": return text;
         default: return text;
       }
@@ -62,21 +77,75 @@ function blocksToMd(blocks) {
     .join("\n");
 }
 
+// Convert a Markdown string to Notion block objects.
+// Supports headings (h1–h3), bullet/numbered lists, inline code, bold, italic, and links.
 function mdToBlocks(md) {
-  return (md || "").split("\n").map((line) => {
-    const rt = (content) => [{ type: "text", text: { content } }];
-    if (line.startsWith("## "))
-      return { object: "block", type: "heading_2", heading_2: { rich_text: rt(line.slice(3)) } };
-    if (line.startsWith("# "))
-      return { object: "block", type: "heading_1", heading_1: { rich_text: rt(line.slice(2)) } };
-    if (line.startsWith("- "))
-      return { object: "block", type: "bulleted_list_item", bulleted_list_item: { rich_text: rt(line.slice(2)) } };
-    return {
-      object: "block",
-      type: "paragraph",
-      paragraph: { rich_text: line ? rt(line) : [] },
-    };
-  });
+  // Parse inline Markdown in a line into a Notion rich_text array.
+  function parseInline(line) {
+    const tokens = [];
+    // Regex matches: links, inline code, bold+italic, bold, italic, plain text
+    const re = /\[([^\]]+)\]\(([^)]+)\)|`([^`]+)`|\*\*\*(.+?)\*\*\*|\*\*(.+?)\*\*|\*(.+?)\*|([^`*[\]]+)/g;
+    let m;
+    while ((m = re.exec(line)) !== null) {
+      if (m[1] != null) {
+        // link
+        tokens.push({ type: "text", text: { content: m[1], link: { url: m[2] } } });
+      } else if (m[3] != null) {
+        // inline code
+        tokens.push({ type: "text", text: { content: m[3] }, annotations: { code: true } });
+      } else if (m[4] != null) {
+        // bold + italic
+        tokens.push({ type: "text", text: { content: m[4] }, annotations: { bold: true, italic: true } });
+      } else if (m[5] != null) {
+        // bold
+        tokens.push({ type: "text", text: { content: m[5] }, annotations: { bold: true } });
+      } else if (m[6] != null) {
+        // italic
+        tokens.push({ type: "text", text: { content: m[6] }, annotations: { italic: true } });
+      } else if (m[7] != null) {
+        // plain text
+        tokens.push({ type: "text", text: { content: m[7] } });
+      }
+    }
+    return tokens.length ? tokens : [{ type: "text", text: { content: line } }];
+  }
+
+  const lines = (md || "").split("\n");
+  const blocks = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // Fenced code block
+    if (line.startsWith("```")) {
+      const codeLines = [];
+      i++;
+      while (i < lines.length && !lines[i].startsWith("```")) {
+        codeLines.push(lines[i]);
+        i++;
+      }
+      blocks.push({
+        object: "block", type: "code",
+        code: { rich_text: [{ type: "text", text: { content: codeLines.join("\n") } }], language: "plain text" },
+      });
+    } else if (line.startsWith("### ")) {
+      blocks.push({ object: "block", type: "heading_3", heading_3: { rich_text: parseInline(line.slice(4)) } });
+    } else if (line.startsWith("## ")) {
+      blocks.push({ object: "block", type: "heading_2", heading_2: { rich_text: parseInline(line.slice(3)) } });
+    } else if (line.startsWith("# ")) {
+      blocks.push({ object: "block", type: "heading_1", heading_1: { rich_text: parseInline(line.slice(2)) } });
+    } else if (line.startsWith("- ")) {
+      blocks.push({ object: "block", type: "bulleted_list_item", bulleted_list_item: { rich_text: parseInline(line.slice(2)) } });
+    } else if (/^\d+\. /.test(line)) {
+      blocks.push({ object: "block", type: "numbered_list_item", numbered_list_item: { rich_text: parseInline(line.replace(/^\d+\. /, "")) } });
+    } else {
+      blocks.push({ object: "block", type: "paragraph", paragraph: { rich_text: line ? parseInline(line) : [] } });
+    }
+    i++;
+  }
+
+  return blocks;
 }
 
 // ─── Property builders ─────────────────────────────────────────────────────────
