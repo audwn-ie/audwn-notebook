@@ -4,94 +4,76 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Audwn's Notebook** is a personal blog for documenting strategy and builder games. It is a React SPA backed by a Netlify serverless function that proxies the Notion API. Notion serves as the CMS — all content is created/edited in Notion and displayed here.
+**Audwn's Notebook** is a personal blog for documenting strategy and builder games. It is a React SPA deployed to GitHub Pages. All content is written as local Markdown files — there is no backend, no API, and no database.
 
 ## Development Commands
 
 ```bash
-npm install                # Install dependencies
-netlify dev                # Run locally at http://localhost:8888 (Vite + serverless function together)
-npm run build              # Production build → dist/
-npm run preview            # Preview the production build locally
+npm install        # Install dependencies
+npm run dev        # Dev server at http://localhost:5173
+npm run build      # Production build → dist/
+npm run preview    # Preview the production build
 ```
 
-> `netlify dev` is preferred over `npm run dev` because it also runs `netlify/functions/notion.js`, making the local environment identical to production. Requires `netlify-cli` installed globally (`npm install -g netlify-cli`).
-
-There are no tests or linters configured.
-
-## Environment Variables
-
-Create a `.env` file for local development (never commit it):
-
-```
-NOTION_TOKEN=secret_xxx
-REVIEWS_DB_ID=<reviews-database-id>
-ARTICLES_DB_ID=<articles-database-id>
-TUTORIALS_DB_ID=<tutorials-database-id>
-ABOUT_PAGE_ID=<about-page-id>
-```
-
-These same variables must be set in the Netlify dashboard for production. The `NOTION_TOKEN` must come from a Notion Internal Integration that has been explicitly connected to each of the three databases.
+No tests or linters are configured.
 
 ## Architecture
 
-### Data Flow
+### Data flow
+
+All content is loaded at **build time** via Vite's `import.meta.glob`. There are no runtime API calls, no loading states, and no external dependencies.
 
 ```
-Browser → React SPA (Netlify CDN)
-        → /.netlify/functions/notion?action=list&db=reviews
-        → netlify/functions/notion.js (serverless)
-        → api.notion.com (authenticated with NOTION_TOKEN)
+content/*.md files
+  → src/data/loader.js  (gray-matter parses frontmatter + body at build time)
+  → imported directly into App.jsx as plain JS arrays
+  → rendered by React components
 ```
 
-`NOTION_TOKEN` is never exposed to the browser — it exists only in the serverless function's environment.
+### Content structure
+
+```
+content/
+  reviews/
+    {slug}.md           ← review post
+    {slug}/
+      {date}.md         ← archived revision of that review
+  articles/
+    {slug}.md
+  tutorials/
+    {slug}.md
+  about.md
+```
+
+The filename (without `.md`) becomes the post `id`. Tags, score, and metadata live in YAML frontmatter; the Markdown body is the `content` field.
 
 ### Frontend (`src/App.jsx`)
 
-The entire frontend is a single 35KB file. All components, state, styles, and data-fetching logic live here. Key sections (marked with banner comments):
+Single-file React SPA. No router — navigation is state-driven (`section`, `view`, `selId`). Key sections marked with banner comments:
 
-- **NOTION CONFIG** — hard-coded Notion DB IDs and `ABOUT_PAGE_ID`
-- **NOTION DATA LAYER** — `notionApi` object with `list()`, `get()`, `about()` methods
-- **MOCK DATA** — fallback data shown when the API is unreachable (triggers DEMO mode with a warning banner)
-- **TAG COLORS** — static map of tag name → `{bg, text, border}` CSS values; add new entries here when adding new tags
-- **SECTION\_ACCENT** — per-section primary accent color
+- **TAG COLORS** → `src/constants/tagColors.js`
+- **SECTION\_ACCENT** → `src/constants/tagColors.js`
 - **Components** — `Panel`, `TagBadge`, `Score`, `MD`, `PostCard`, `SectionList`, `PostDetail`, `HomePage`, `AboutPage`
-- **App** — root component; owns all state and routing
+- **App** — root component; owns all state and navigation
 
-State is managed entirely with React hooks (`useState`, `useEffect`, `useCallback`) in the `App` component. There is no router — navigation is state-driven (`section`, `post` state variables).
+### Data loader (`src/data/loader.js`)
 
-The UI uses a cyberpunk/retro-futuristic theme with inline CSS throughout. Fonts (Share Tech Mono, Rajdhani, Orbitron) are injected via a `<link>` appended to `document.head` at module load time.
-
-### Backend (`netlify/functions/notion.js`)
-
-A single serverless handler that acts as a secure proxy to the Notion API. Key responsibilities:
-
-- **`blocksToMd(blocks)`** — converts Notion block objects to Markdown strings
-- **`mdToBlocks(md)`** — converts Markdown strings to Notion block objects for writes
-- **`normalizePage(page, blocks)`** — maps a raw Notion page + its blocks into the normalized post shape used everywhere in the frontend
-- **Handler** — routes by `action` query param: `list`, `get`, `create`, `update`; responds to `OPTIONS` for CORS preflight
-
-The normalized post shape:
-```js
-{
-  id, postType, notionUrl, title, game, score,
-  tags: { progress, genre, priority, artType, difficulty },
-  status, createdAt, updatedAt, content,  // content is Markdown
-  archives, coverUrl, screenshotUrl
-}
-```
+Imports all `.md` files using `import.meta.glob` with `eager: true` (synchronous, bundled at build). Uses `gray-matter` to parse frontmatter. Exports `reviews`, `articles`, `tutorials`, `about` as plain arrays/objects.
 
 ### Deployment
 
-Deployment is automatic: every push to `main` triggers Netlify to run `npm run build`, publish `dist/`, and deploy the serverless function. Configuration is in `netlify.toml`. The `[[redirects]]` rule (`/* → /index.html`) is what enables SPA client-side routing.
+GitHub Actions (`.github/workflows/deploy.yml`) runs `npm run build` on every push to `main` and deploys `dist/` to GitHub Pages.
+
+**One-time setup:** Repo Settings → Pages → Source: GitHub Actions.
 
 ## Key Conventions
 
-- **Inline styles everywhere** — there are no CSS files. All styling is done with the `style` prop. Follow this pattern when adding UI.
-- **Adding a new tag** — add an entry to `TAG_COLORS` in `App.jsx`. Without an entry, the tag renders with `DEFAULT_TAG_COLOR`.
-- **Adding a new section/content type** — requires changes in both `App.jsx` (UI, state, `notionApi` calls, mock data) and `notion.js` (new DB env var, normalization logic, list/create/update routing).
-- **Content is Markdown** — the `content` field on all posts is a Markdown string. The `MD` component in `App.jsx` renders it; `mdToBlocks`/`blocksToMd` in `notion.js` handle the Notion ↔ Markdown conversion.
-- **DEMO mode** — if any API call throws, the app silently falls back to `MOCK` data and shows a DEMO banner. This is intentional and should be preserved.
+- **Inline styles everywhere** — no CSS files. All styling uses the `style` prop.
+- **Adding a new tag** — add an entry to `TAG_COLORS` in `src/constants/tagColors.js`.
+- **Adding a new post** — create a `.md` file in the correct `content/` subfolder with appropriate frontmatter. The build picks it up automatically.
+- **Adding a new section/content type** — add a new `import.meta.glob` in `loader.js`, export the array, update `App.jsx` (DATA map, nav items, SectionList postType, filters).
+- **Content is Markdown** — the body of each `.md` file is rendered by the `MD` component using `marked`.
+- **Base URL** — set in `vite.config.js`. Use `"/audwn-notebook/"` for GitHub Pages project site, `"/"` for a custom domain.
 
 ## Workflow
 
