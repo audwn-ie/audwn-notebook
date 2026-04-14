@@ -167,11 +167,19 @@ exports.handler = async (event) => {
       const dbId = DB[db];
       if (!dbId) return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: "Unknown db" }) };
 
-      const result = await notion(`/databases/${dbId}/query`, "POST", {
-        sorts: [{ timestamp: "last_edited_time", direction: "descending" }],
-      });
+      const allPages = [];
+      let cursor;
+      do {
+        const result = await notion(`/databases/${dbId}/query`, "POST", {
+          sorts: [{ timestamp: "last_edited_time", direction: "descending" }],
+          page_size: 100,
+          ...(cursor ? { start_cursor: cursor } : {}),
+        });
+        allPages.push(...result.results);
+        cursor = result.has_more ? result.next_cursor : null;
+      } while (cursor);
 
-      const pages = result.results.map((p) => normalisePage(p, POST_TYPE[db]));
+      const pages = allPages.map((p) => normalisePage(p, POST_TYPE[db]));
       return { statusCode: 200, headers: CORS, body: JSON.stringify(pages) };
     }
 
